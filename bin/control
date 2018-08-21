@@ -1,0 +1,151 @@
+#!/bin/bash
+
+set -o nounset
+
+cd $(dirname $0)/.. || exit 1
+
+readonly PROC_NAME='test_server1'
+readonly PROC_PATH=$(pwd)/bin1/$PROC_NAME
+
+check()
+{
+    pid=$(ps -ef | fgrep "${PROC_PATH}" | fgrep -v "grep" | awk '{print $2}')
+    if [ -z "${pid}" ]; then
+        return 1
+    fi
+    return 0
+}
+
+die()
+{
+    echo "[FAILED] ${1}"
+    exit 1
+}
+
+ok()
+{
+    echo "[OK] ${1}"
+}
+
+start()
+{
+    if check ; then
+        ok "start"
+        return 0
+    fi
+
+    (setsid ${PROC_PATH} </dev/null >/dev/null 2>&1 &)
+    sleep 1
+    check || die "start"
+    ok "start"
+    return 0
+}
+
+signal()
+{
+    local SIGNAL=$1
+    local OPERATE=$2
+
+    local pid=$(ps -ef | fgrep "${PROC_PATH}" | fgrep -v "grep" | awk '{print $2}')
+    if [ -z "${pid}" ]; then
+        ok $OPERATE
+        return 0
+    fi
+
+    for i in 1 2 3 4 5; do
+        kill $SIGNAL $pid
+        sleep 1
+        local pid=$(ps -ef | fgrep "${PROC_PATH}" | fgrep -v "grep" | awk '{print $2}')
+        if [ -z "${pid}" ]; then
+            ok $OPERATE
+            return 0
+        fi
+    done
+    die $OPERATE
+}
+
+stop()
+{
+    signal -TERM stop
+}
+
+shutdown()
+{
+    signal -KILL shutdown
+}
+
+restart()
+{
+    stop
+    start
+}
+
+status()
+{
+    if check ; then
+        echo 'Running'
+        return 0
+    else
+        echo 'Not running'
+        return 1
+    fi
+}
+
+help()
+{
+    echo "usage: $1 command"
+    echo "command is show as fallows:"
+    echo "  start         start    $PROC_NAME"
+    echo "  stop          stop     $PROC_NAME"
+    echo "  restart       restart  $PROC_NAME"
+    echo "  status        check    $PROC_NAME status whether it is running"
+    echo "AUTHORS: Liu Ming<liuming8@jd.com>"
+}
+
+main()
+{
+    if [ $# -lt 1 ]; then
+        help $0
+        return 0
+    fi
+
+    case "$1" in
+    'start')
+        start
+        return $?
+        ;;
+
+    'stop')
+        stop
+        return $?
+        ;;
+
+    'status')
+        status
+        return $?
+        ;;
+
+    'restart')
+        restart
+        return $?
+        ;;
+
+    'shutdown')
+        shutdown
+        return $?
+        ;;
+
+    'help')
+        help $0
+        return 0
+        ;;
+
+    *)
+        echo "command $1 not support, only <start|stop|restart|shutdown|status>."
+        help $0
+        return 1
+    esac
+
+}
+
+main $*

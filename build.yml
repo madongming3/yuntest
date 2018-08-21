@@ -1,0 +1,12 @@
+---
+envs:
+  - name: TEST_ENV
+    value: testtttt
+cmds:
+  - name: who
+    cmd: id
+  - name: see
+    cmd: pwd
+  - name: build
+    cmd: ./build.sh
+out_dir: output
